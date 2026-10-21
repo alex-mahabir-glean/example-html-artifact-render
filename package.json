@@ -1,0 +1,13 @@
+{
+  "name": "example-html-artifact-render",
+  "description": "Ask Glean chat for an HTML artifact, then render it in a page you host.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  }
+}

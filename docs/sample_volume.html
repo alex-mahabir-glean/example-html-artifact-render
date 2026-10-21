@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="glean-artifact-type" content="visual_content">
+<title>Sample volume</title>
+<style>
+:root {
+  --artifact-background: #ffffff;
+  --artifact-background-light: #f1f3f6;
+  --artifact-background-mid: #e9ecf1;
+  --artifact-border-light: #e3e6ec;
+  --artifact-border-dark: #cdd2db;
+  --artifact-primary-brand: #3559e6;
+  --artifact-primary-highlight: #0d0f14;
+  --artifact-primary-hover: #2442b8;
+  --artifact-selected: #eaeefc;
+  --artifact-text-primary: #11141a;
+  --artifact-text-secondary: #5c6470;
+  --artifact-text-highlight: #e8eefc;
+  --artifact-bar: #b9c6f5;
+  --artifact-tooltip-bg: #11141a;
+  --artifact-tooltip-text: #ffffff;
+}
+html[data-theme='dark'] {
+  --artifact-background: #0a0b0e;
+  --artifact-background-light: #121419;
+  --artifact-background-mid: #181b22;
+  --artifact-border-light: #23262e;
+  --artifact-border-dark: #343844;
+  --artifact-primary-brand: #6a92ff;
+  --artifact-primary-highlight: #f5f7fb;
+  --artifact-primary-hover: #88a8ff;
+  --artifact-selected: #1a2030;
+  --artifact-text-primary: #eef0f4;
+  --artifact-text-secondary: #9aa0ad;
+  --artifact-text-highlight: #14213d;
+  --artifact-bar: #2c3d78;
+  --artifact-tooltip-bg: #eef0f4;
+  --artifact-tooltip-text: #0a0b0e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 16px; line-height: 1.6; letter-spacing: -0.005em;
+  background-color: var(--artifact-background);
+  color: var(--artifact-text-primary);
+}
+main { max-width: 880px; margin: 0 auto; padding: 56px 24px 64px; }
+.eyebrow {
+  font-family: "SF Mono", "IBM Plex Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--artifact-text-secondary); margin: 0 0 12px;
+}
+h1 {
+  font-size: clamp(2.25rem, 6vw, 3.75rem); font-weight: 300; line-height: 1.05;
+  letter-spacing: -0.02em; margin: 0 0 32px; color: var(--artifact-text-primary);
+}
+.summary { display: flex; gap: 48px; flex-wrap: wrap; margin-bottom: 36px; }
+.stat-label { font-family: "SF Mono", Consolas, monospace; font-size: 12px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--artifact-text-secondary); display: flex; align-items: center; gap: 6px; }
+.stat-value { font-weight: 300; font-size: clamp(2.25rem, 5vw, 3.25rem); line-height: 1.1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.stat-sub { font-size: 14px; color: var(--artifact-text-secondary); }
+
+.chart-card { border: 1px solid var(--artifact-border-light); border-radius: 8px; padding: 24px 24px 16px;
+  background: var(--artifact-background); position: relative; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.chart-title { font-size: 1.125rem; font-weight: 500; margin: 0; display: flex; align-items: center; gap: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--artifact-border-dark); border-radius: 6px; overflow: hidden; }
+.seg button {
+  font: inherit; font-size: 13px; padding: 6px 12px; border: 0; cursor: pointer;
+  background: var(--artifact-background); color: var(--artifact-text-secondary);
+}
+.seg button + button { border-left: 1px solid var(--artifact-border-dark); }
+.seg button:hover { color: var(--artifact-text-primary); background: var(--artifact-background-light); }
+.seg button[aria-pressed="true"] { background: var(--artifact-selected); color: var(--artifact-primary-brand); }
+.seg button:focus-visible { outline: 2px solid var(--artifact-primary-brand); outline-offset: -2px; }
+
+.chart-wrap { width: 100%; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grid-line { stroke: var(--artifact-border-light); stroke-width: 1; }
+.axis-line { stroke: var(--artifact-border-dark); stroke-width: 1; }
+.tick-label { fill: var(--artifact-text-secondary); font-size: 12px; font-family: "SF Mono", Consolas, monospace; }
+.cat-label { fill: var(--artifact-text-primary); font-size: 14px; font-weight: 500; }
+.val-label { fill: var(--artifact-text-primary); font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.bar-g { cursor: pointer; transition: transform 500ms cubic-bezier(.2,.7,.2,1); outline: none; }
+.bar { fill: var(--artifact-bar); transition: fill 160ms ease; }
+.bar-g.is-max .bar { fill: var(--artifact-primary-brand); }
+.bar-g:hover .bar, .bar-g:focus-visible .bar { fill: var(--artifact-primary-hover); }
+.bar-g:focus-visible .bar { stroke: var(--artifact-text-primary); stroke-width: 2; }
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.bar-anim { transform-box: fill-box; transform-origin: bottom; animation: grow 700ms cubic-bezier(.2,.7,.2,1) both; }
+
+.tooltip {
+  position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -100%);
+  background: var(--artifact-tooltip-bg); color: var(--artifact-tooltip-text);
+  font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 6px; white-space: nowrap;
+  transition: opacity 120ms ease;
+}
+.tooltip.show { opacity: 1; }
+.tooltip strong { font-weight: 600; }
+
+.info { position: relative; display: inline-flex; }
+.info-btn { font: inherit; font-size: 13px; line-height: 1; border: 0; background: transparent; padding: 2px;
+  color: var(--artifact-text-secondary); cursor: help; border-radius: 4px; }
+.info-btn:focus-visible { outline: 2px solid var(--artifact-primary-brand); }
+.info-tip { position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); width: 240px;
+  background: var(--artifact-tooltip-bg); color: var(--artifact-tooltip-text); font-family: "Inter", -apple-system, sans-serif;
+  font-size: 12.5px; letter-spacing: 0; text-transform: none; font-weight: 400; line-height: 1.45;
+  padding: 10px 12px; border-radius: 6px; opacity: 0; visibility: hidden; transition: opacity 120ms ease; z-index: 20; }
+.info:hover .info-tip, .info-btn:focus + .info-tip { opacity: 1; visibility: visible; }
+
+.legend { display: flex; gap: 20px; font-size: 13px; color: var(--artifact-text-secondary); margin-top: 8px; flex-wrap: wrap; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.swatch.max { background: var(--artifact-primary-brand); }
+.swatch.other { background: var(--artifact-bar); }
+
+@media screen and (max-width: 560px) { main { padding: 36px 16px 48px; } .summary { gap: 28px; } }
+
+@media print {
+  @page { size: auto !important; }
+  body { margin: 0; padding: 0.4in 0.6in; background: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  main { max-width: 100% !important; width: 100% !important; padding: 0 !important; }
+  section, [class*="section"] { break-inside: avoid; margin-bottom: 20px !important; }
+  [class*="card"] { break-inside: avoid; padding: 18px !important; box-shadow: none !important; border: 1px solid rgba(0,0,0,0.08); }
+  .chart-card { break-inside: avoid; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .bar-anim { transform: none !important; }
+  button, [role="button"], .interactive-only, .tooltip, .info { display: none !important; }
+  @page { size: auto !important; }
+}
+</style>
+</head>
+<body>
+<main>
+  <section data-glean-id="header">
+    <p class="eyebrow">Sample volume · By group</p>
+    <h1 data-glean-id="title">Sample volume</h1>
+  </section>
+
+  <section class="summary" data-glean-id="summary">
+    <div data-glean-id="stat-total">
+      <div class="stat-label">Total samples
+        <span class="info"><button type="button" class="info-btn" aria-label="About total samples">ⓘ</button>
+          <span class="info-tip" role="tooltip">Sum of the three group values (Alpha, Beta, Gamma) provided in the request. No other data sources or filters applied.</span></span>
+      </div>
+      <div class="stat-value" id="totalVal">—</div>
+      <div class="stat-sub">across 3 groups</div>
+    </div>
+    <div data-glean-id="stat-leader">
+      <div class="stat-label">Highest volume
+        <span class="info"><button type="button" class="info-btn" aria-label="About highest volume">ⓘ</button>
+          <span class="info-tip" role="tooltip">The group with the largest value among the supplied figures, and its share of the total.</span></span>
+      </div>
+      <div class="stat-value" id="leaderVal">—</div>
+      <div class="stat-sub" id="leaderSub"></div>
+    </div>
+  </section>
+
+  <section class="chart-card" data-glean-id="chart-sample-volume">
+    <div class="chart-head">
+      <h2 class="chart-title">Samples by group
+        <span class="info"><button type="button" class="info-btn" aria-label="About this chart">ⓘ</button>
+          <span class="info-tip" role="tooltip">Bar height = sample count per group, as provided in the request: Alpha 8, Beta 5, Gamma 13. Highlighted bar marks the highest volume.</span></span>
+      </h2>
+      <div class="seg interactive-only" role="group" aria-label="Sort bars">
+        <button type="button" data-sort="original" aria-pressed="true">Original</button>
+        <button type="button" data-sort="desc" aria-pressed="false">High → Low</button>
+        <button type="button" data-sort="asc" aria-pressed="false">Low → High</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 800 380" role="img" aria-labelledby="chartDesc">
+        <desc id="chartDesc">Bar chart of Sample volume: Alpha 8, Beta 5, Gamma 13.</desc>
+      </svg>
+    </div>
+    <div class="tooltip" id="tip" role="status" aria-live="polite"></div>
+    <div class="legend">
+      <span><span class="swatch max"></span>Highest volume</span>
+      <span><span class="swatch other"></span>Other groups</span>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var DATA = [
+    { id: 'alpha', name: 'Alpha', value: 8 },
+    { id: 'beta',  name: 'Beta',  value: 5 },
+    { id: 'gamma', name: 'Gamma', value: 13 }
+  ];
+  var NS = 'http://www.w3.org/2000/svg';
+  var W = 800, H = 380, M = { top: 28, right: 16, bottom: 44, left: 44 };
+  var innerW = W - M.left - M.right, innerH = H - M.top - M.bottom;
+  var total = DATA.reduce(function (s, d) { return s + d.value; }, 0);
+  var max = DATA.reduce(function (a, d) { return d.value > a.value ? d : a; });
+  var yMax = 15, step = 5;
+
+  document.getElementById('totalVal').textContent = total;
+  document.getElementById('leaderVal').textContent = max.name;
+  document.getElementById('leaderSub').textContent = max.value + ' samples · ' + Math.round(max.value / total * 100) + '% of total';
+
+  var svg = document.getElementById('chart');
+  var tip = document.getElementById('tip');
+  var card = svg.closest('.chart-card');
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(n); return n;
+  }
+  function y(v) { return M.top + innerH - (v / yMax) * innerH; }
+
+  // Grid + y ticks
+  for (var t = 0; t <= yMax; t += step) {
+    el('line', { x1: M.left, x2: W - M.right, y1: y(t), y2: y(t), class: t === 0 ? 'axis-line' : 'grid-line' });
+    var lbl = el('text', { x: M.left - 10, y: y(t) + 4, 'text-anchor': 'end', class: 'tick-label' });
+    lbl.textContent = t;
+  }
+
+  var slot = innerW / DATA.length, barW = Math.min(140, slot * 0.5);
+  var groups = {};
+  DATA.forEach(function (d, i) {
+    var g = el('g', { class: 'bar-g' + (d.id === max.id ? ' is-max' : ''), tabindex: '0', role: 'img',
+      'aria-label': d.name + ': ' + d.value + ' samples' });
+    g.dataset.gleanId = 'bar-' + d.id;
+    var bh = innerH * d.value / yMax;
+    var r = el('rect', { x: -barW / 2, y: y(d.value), width: barW, height: bh, rx: 4, class: 'bar bar-anim' }, g);
+    r.style.animationDelay = (i * 110) + 'ms';
+    // square off bottom corners
+    el('rect', { x: -barW / 2, y: y(0) - 4, width: barW, height: 4, class: 'bar bar-anim', style: 'animation-delay:' + (i * 110) + 'ms' }, g);
+    var v = el('text', { x: 0, y: y(d.value) - 10, 'text-anchor': 'middle', class: 'val-label' }, g);
+    v.textContent = d.value;
+    var c = el('text', { x: 0, y: H - M.bottom + 26, 'text-anchor': 'middle', class: 'cat-label' }, g);
+    c.textContent = d.name;
+
+    function show() {
+      var share = Math.round(d.value / total * 100);
+      tip.innerHTML = '<strong>' + d.name + '</strong> · ' + d.value + ' samples<br>' + share + '% of total';
+      var sr = svg.getBoundingClientRect(), cr = card.getBoundingClientRect();
+      var scale = sr.width / W;
+      var cx = sr.left - cr.left + (M.left + slotX(g)) * scale;
+      var cy = sr.top - cr.top + (y(d.value) - 32) * scale;
+      tip.style.left = cx + 'px'; tip.style.top = cy + 'px';
+      tip.classList.add('show');
+    }
+    function hide() { tip.classList.remove('show'); }
+    g.addEventListener('mouseenter', show);
+    g.addEventListener('mouseleave', hide);
+    g.addEventListener('focus', show);
+    g.addEventListener('blur', hide);
+    groups[d.id] = g;
+  });
+  function slotX(g) { return parseFloat(g.dataset.cx || 0); }
+
+  function layout(order) {
+    order.forEach(function (d, i) {
+      var cx = slot * i + slot / 2;
+      var g = groups[d.id];
+      g.dataset.cx = cx;
+      g.style.transform = 'translate(' + (M.left + cx) + 'px, 0px)';
+    });
+  }
+  layout(DATA);
+
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      var mode = b.dataset.sort, order = DATA.slice();
+      if (mode === 'desc') order.sort(function (a, c) { return c.value - a.value; });
+      if (mode === 'asc') order.sort(function (a, c) { return a.value - c.value; });
+      tip.classList.remove('show');
+      layout(order);
+    });
+  });
+})();
+</script>
+
+<script>
+  if (window.GleanBridge) {
+    window.GleanBridge.postMessage({
+      actionId: 'export-pdf',
+      type: 'glean-add-menu',
+      metadata: { label: 'Export as PDF', icon: 'export' }
+    });
+    window.GleanBridge.onMessage('action', function(data) {
+      if (data.actionId === 'export-pdf') window.print();
+    });
+  }
+  function prepareChartsForPrint() {
+    if (typeof echarts === 'undefined') return;
+    document.querySelectorAll('[_echarts_instance_]').forEach(function(el) {
+      var chart = echarts.getInstanceByDom(el);
+      if (!chart) return;
+      var img = new Image();
+      img.src = chart.getDataURL({ type: 'png', pixelRatio: 2 });
+      img.className = 'print-chart-img';
+      img.style.cssText = 'width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;z-index:10;';
+      el.dataset.prevPosition = el.style.position;
+      el.style.position = 'relative';
+      el.appendChild(img);
+    });
+  }
+  function cleanUpAfterPrint() {
+    document.querySelectorAll('[_echarts_instance_]').forEach(function(el) {
+      var img = el.querySelector('.print-chart-img');
+      if (!img) return;
+      img.remove();
+      el.style.position = el.dataset.prevPosition || '';
+      delete el.dataset.prevPosition;
+    });
+  }
+  window.addEventListener('beforeprint', prepareChartsForPrint);
+  window.addEventListener('afterprint', cleanUpAfterPrint);
+</script>
+</body>
+</html>
