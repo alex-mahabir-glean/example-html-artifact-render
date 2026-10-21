@@ -2,172 +2,124 @@ const app = document.querySelector("#app");
 const defaultPrompt =
   "Create a self-contained interactive HTML artifact, not inline code or markdown. Draw a bar chart titled Sample pipeline volume with three bars: Discovery 12, Clinical 7, and Filing 3. Use only inline CSS and SVG. Do not ask follow-up questions.";
 
-const path = location.pathname;
-const graphMatch = path.match(/^\/graph\/([^/]+)$/);
-
+const graphMatch = location.pathname.match(/^\/graph\/([^/]+)$/);
 if (graphMatch) {
-  renderGraph(decodeURIComponent(graphMatch[1]));
+  renderArtifact(decodeURIComponent(graphMatch[1]));
 } else {
-  renderHome();
+  renderForm();
 }
 
-async function renderHome() {
+async function renderForm() {
   const config = await getJson("/api/config");
   const users = config.users || [];
+  const userField =
+    users.length > 1
+      ? `<label for="user">User</label>
+         <select id="user" name="userId">
+           ${users.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.email)}</option>`).join("")}
+         </select>`
+      : `<input id="user" type="hidden" value="${escapeHtml(users[0]?.id || "1")}">`;
+
   app.innerHTML = `
     <main class="shell">
-      <header class="top">
-        <div>
-          <h1 class="brand">Graph studio</h1>
-          <p class="lede">Ask Glean chat for an HTML artifact, then open that artifact id and render the graph here.</p>
+      <form id="generate-form" class="panel">
+        ${userField}
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" name="prompt">${escapeHtml(defaultPrompt)}</textarea>
+        <div class="actions">
+          <button type="button" id="generate">Generate</button>
         </div>
-      </header>
-      <div class="layout">
-        <section class="panel">
-          <form id="generate-form">
-            <label for="user">Glean user</label>
-            <select id="user" name="userId">
-              ${users.map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.email)}</option>`).join("")}
-            </select>
-            <div class="row">
-              <label for="prompt">Ask chat for a graph</label>
-              <textarea id="prompt" name="prompt">${escapeHtml(defaultPrompt)}</textarea>
-            </div>
-            <div class="actions">
-              <button type="submit" id="generate">Generate graph</button>
-            </div>
-            <p class="status" id="status" hidden></p>
-            <p class="error" id="error" hidden></p>
-          </form>
-        </section>
-        <section class="panel">
-          <h2>Open an artifact</h2>
-          <form id="open-form">
-            <label for="artifact-id">Artifact id</label>
-            <input id="artifact-id" name="artifactId" type="text" placeholder="Paste an artifact id" />
-            <div class="actions">
-              <button type="submit" class="secondary">Render</button>
-            </div>
-          </form>
-          <div id="library"></div>
-        </section>
+        <p class="status" id="status" hidden></p>
+        <p class="error" id="error" hidden></p>
+      </form>
+      <ol class="calls" id="calls" hidden></ol>
+      <div class="frame-wrap" id="frame-wrap" hidden>
+        <iframe id="graph" sandbox="allow-scripts" title="Generated HTML artifact"></iframe>
       </div>
     </main>
   `;
 
-  document.querySelector("#generate-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
+  document.querySelector("#generate").addEventListener("click", async () => {
     const button = document.querySelector("#generate");
     const status = document.querySelector("#status");
     const error = document.querySelector("#error");
     error.hidden = true;
     status.hidden = false;
-    status.textContent = "Asking Glean chat for an HTML graph. This usually takes a minute.";
+    status.textContent = "Generating the artifact. This usually takes a minute.";
     button.disabled = true;
+    showCalls([]);
     try {
       const result = await postJson("/api/generate", {
         userId: document.querySelector("#user").value,
         prompt: document.querySelector("#prompt").value,
       });
-      if (!result.artifact?.id) {
-        throw new Error(result.error || "Chat did not return an artifact");
-      }
-      sessionStorage.setItem("graph-user", document.querySelector("#user").value);
-      location.assign(`/graph/${encodeURIComponent(result.artifact.id)}`);
+      if (!result.html) throw new Error("Glean did not return an artifact");
+      showCalls(result.calls);
+      showFrame(result.html);
+      status.hidden = true;
     } catch (cause) {
+      showCalls(cause.calls);
       error.hidden = false;
       error.textContent = cause.message;
       status.hidden = true;
       button.disabled = false;
     }
   });
-
-  document.querySelector("#open-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const artifactId = document.querySelector("#artifact-id").value.trim();
-    if (!artifactId) return;
-    rememberUser();
-    location.assign(`/graph/${encodeURIComponent(artifactId)}`);
-  });
-
-  const userSelect = document.querySelector("#user");
-  const storedUser = sessionStorage.getItem("graph-user");
-  if (storedUser && users.some((user) => user.id === storedUser)) userSelect.value = storedUser;
-  userSelect.addEventListener("change", rememberUser);
-  rememberUser();
-
-  function rememberUser() {
-    sessionStorage.setItem("graph-user", userSelect.value);
-    loadLibrary(userSelect.value);
-  }
 }
 
-let libraryRequest = 0;
-
-async function loadLibrary(userId) {
-  const library = document.querySelector("#library");
-  if (!userId || !library) return;
-  const requestId = ++libraryRequest;
-  try {
-    const payload = await getJson(`/api/artifacts?userId=${encodeURIComponent(userId)}`);
-    if (requestId !== libraryRequest) return;
-    const artifacts = payload.artifacts || [];
-    if (artifacts.length === 0) {
-      library.innerHTML = `<p class="muted">No HTML artifacts were returned.</p>`;
-      return;
-    }
-    library.innerHTML = artifacts
-      .map(
-        (artifact) => `
-          <div class="library-item">
-            <a href="/graph/${encodeURIComponent(artifact.id)}">${escapeHtml(artifact.name || artifact.id)}</a>
-            <span class="muted">${escapeHtml(artifact.type || "")}</span>
-          </div>
-        `,
-      )
-      .join("");
-  } catch (error) {
-    if (requestId !== libraryRequest) return;
-    library.innerHTML = `<p class="muted">Artifact list is unavailable (${escapeHtml(error.message)}).</p>`;
-  }
+function showFrame(html) {
+  document.querySelector("#generate-form").hidden = true;
+  const wrap = document.querySelector("#frame-wrap");
+  wrap.hidden = false;
+  document.querySelector("#graph").srcdoc = html;
 }
 
-async function renderGraph(artifactId) {
-  const userId = sessionStorage.getItem("graph-user") || "";
-  const query = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+function showCalls(calls) {
+  const list = document.querySelector("#calls");
+  if (!list) return;
+  if (!calls?.length) {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  list.hidden = false;
+  list.innerHTML = calls.map((call) => `<li>${escapeHtml(formatCall(call))}</li>`).join("");
+}
+
+function formatCall(call) {
+  const status = call.cached ? "cached" : call.status ?? "error";
+  const seconds = `${(Number(call.ms) / 1000).toFixed(1)}s`;
+  const detail =
+    call.error ||
+    call.response?.artifactId ||
+    call.response?.id ||
+    (call.response?.chatId ? `chat ${call.response.chatId}` : "") ||
+    (call.response?.tokenPresent ? "session" : "");
+  return [`${call.method} ${call.path}`, status, seconds, detail].filter(Boolean).join("  ");
+}
+
+async function renderArtifact(artifactId) {
   app.innerHTML = `
-    <main class="stage-page">
-      <header class="stage-bar">
-        <div>
-          <p class="muted" style="margin:0 0 4px">Artifact ${escapeHtml(artifactId)}</p>
-          <h1 class="stage-title" id="title">Loading graph</h1>
-        </div>
-        <div class="stage-actions">
-          <a class="secondary" href="/">New graph</a>
-          <a class="secondary" id="library-link" href="https://app.glean.com/library/${encodeURIComponent(artifactId)}" target="_blank" rel="noreferrer">Open in Glean</a>
-        </div>
-      </header>
-      <p class="banner" id="banner" hidden></p>
-      <div class="frame-wrap">
-        <iframe id="graph" sandbox="allow-scripts" title="Glean HTML graph"></iframe>
+    <main class="shell">
+      <p class="status" id="status">Loading the artifact.</p>
+      <p class="error" id="error" hidden></p>
+      <ol class="calls" id="calls" hidden></ol>
+      <div class="frame-wrap" id="frame-wrap" hidden>
+        <iframe id="graph" sandbox="allow-scripts" title="Generated HTML artifact"></iframe>
       </div>
     </main>
   `;
-
   try {
-    const payload = await getJson(`/api/artifacts/${encodeURIComponent(artifactId)}${query}`);
-    const artifact = payload.artifact;
-    document.querySelector("#title").textContent = artifact.name || "Graph";
-    const banner = document.querySelector("#banner");
-    if (payload.warning) {
-      banner.hidden = false;
-      banner.textContent = payload.warning;
-    }
-    const frame = document.querySelector("#graph");
-    frame.srcdoc = artifact.html;
+    const payload = await getJson(`/api/artifacts/${encodeURIComponent(artifactId)}`);
+    showCalls(payload.calls);
+    document.querySelector("#status").hidden = true;
+    document.querySelector("#frame-wrap").hidden = false;
+    document.querySelector("#graph").srcdoc = payload.artifact.html;
   } catch (error) {
-    document.querySelector("#title").textContent = "Could not render graph";
-    const banner = document.querySelector("#banner");
+    showCalls(error.calls);
+    const status = document.querySelector("#status");
+    status.hidden = true;
+    const banner = document.querySelector("#error");
     banner.hidden = false;
     banner.textContent = error.message;
   }
@@ -176,7 +128,11 @@ async function renderGraph(artifactId) {
 async function getJson(url) {
   const response = await fetch(url);
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(payload.error || `Request failed (${response.status})`);
+    error.calls = payload.calls;
+    throw error;
+  }
   return payload;
 }
 
@@ -187,7 +143,11 @@ async function postJson(url, body) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || payload.answer || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(payload.error || `Request failed (${response.status})`);
+    error.calls = payload.calls;
+    throw error;
+  }
   return payload;
 }
 

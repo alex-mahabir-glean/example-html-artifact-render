@@ -6,6 +6,7 @@ import test from "node:test";
 import { resolvePublicFile } from "../lib/http.mjs";
 import { loadUsers } from "../lib/env.mjs";
 import { publicErrorMessage } from "../lib/errors.mjs";
+import { keepDefaultCertificateAuthorities } from "../lib/glean.mjs";
 
 test("public files cannot escape the public directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "graph-public-"));
@@ -32,6 +33,15 @@ test("users require a paired client token and stay ordered", () => {
   assert.equal(users[0].token, "first-token");
 });
 
+test("a custom SSL_CERT_FILE does not replace the default certificate authorities", () => {
+  const previous = process.env.SSL_CERT_FILE;
+  process.env.SSL_CERT_FILE = "/tmp/only-the-sandbox-ca.pem";
+  keepDefaultCertificateAuthorities();
+  assert.equal(process.env.SSL_CERT_FILE, undefined);
+  if (previous === undefined) delete process.env.SSL_CERT_FILE;
+  else process.env.SSL_CERT_FILE = previous;
+});
+
 test("error text does not keep bearer secrets", () => {
   const message = publicErrorMessage(
     "Bearer GLEAN_AUTH_TOKEN_examplevalue and AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
@@ -39,4 +49,8 @@ test("error text does not keep bearer secrets", () => {
   assert.equal(message.includes("examplevalue"), false);
   assert.equal(message.includes("AAAAAAAA"), false);
   assert.match(message, /Bearer \[redacted\]/);
+  assert.equal(
+    publicErrorMessage("/api/v1/artifacts/fc3140f5e8984a67b45435a38b01c9cd"),
+    "/api/v1/artifacts/fc3140f5e8984a67b45435a38b01c9cd",
+  );
 });

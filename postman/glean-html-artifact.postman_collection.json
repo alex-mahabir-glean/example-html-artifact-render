@@ -1,0 +1,90 @@
+{
+  "info": {
+    "name": "Glean HTML artifact",
+    "description": "Chat creates an HTML artifact. Create session token mints a web session with the auth token API key and X-Glean-ActAs. Get artifact downloads that artifact with the session token. Fill the environment values, run Create session token and Chat, then Get artifact. The chat test saves artifactId. The session test saves sessionToken. Do not commit real tokens.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://your-instance-be.glean.com" },
+    { "key": "clientToken", "value": "" },
+    { "key": "authTokenApiKey", "value": "" },
+    { "key": "actAsEmail", "value": "" },
+    { "key": "artifactId", "value": "" },
+    { "key": "sessionToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Create session token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{authTokenApiKey}}" },
+          { "key": "X-Glean-ActAs", "value": "{{actAsEmail}}" }
+        ],
+        "url": "{{baseUrl}}/rest/api/v1/createauthtoken",
+        "description": "Mint a session for the ActAs user. User client tokens are not accepted here."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('session token returned', () => pm.expect(body.token).to.be.a('string').and.not.empty);",
+              "pm.collectionVariables.set('sessionToken', body.token);",
+              "if (pm.environment.get('sessionToken') !== undefined) pm.environment.set('sessionToken', body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{clientToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\n      \"author\": \"USER\",\n      \"messageType\": \"CONTENT\",\n      \"fragments\": [\n        {\n          \"text\": \"Create a self-contained interactive HTML artifact, not inline code or markdown. Draw a bar chart titled Sample pipeline volume with three bars: Discovery 12, Clinical 7, and Filing 3. Use only inline CSS and SVG. Do not ask follow-up questions.\"\n        }\n      ]\n    }\n  ],\n  \"saveChat\": true,\n  \"agentConfig\": {\n    \"agent\": \"DEFAULT\",\n    \"useCanvas\": true,\n    \"clientCapabilities\": {\n      \"artifacts\": {\n        \"allowedArtifactTypes\": [\n          \"HTML_CODE\"\n        ]\n      }\n    }\n  },\n  \"sourceInfo\": {\n    \"feature\": \"CHAT\",\n    \"initiator\": \"USER\",\n    \"platform\": \"WEB\",\n    \"isDebug\": false\n  }\n}\n",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/rest/api/v1/chat",
+        "description": "Ask chat for an HTML_CODE artifact. Uses the user client token. The test script copies messages[].artifactInfo.id from the ARTIFACT_HTML message into {{artifactId}}."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "const messages = body.messages || [];",
+              "const artifact = messages.find((message) => message.messageType === 'ARTIFACT_HTML' && message.artifactInfo && message.artifactInfo.id);",
+              "pm.test('artifact id returned', () => pm.expect(artifact && artifact.artifactInfo.id).to.be.a('string').and.not.empty);",
+              "pm.collectionVariables.set('artifactId', artifact.artifactInfo.id);",
+              "if (pm.environment.get('artifactId') !== undefined) pm.environment.set('artifactId', artifact.artifactInfo.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get artifact",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{sessionToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/artifacts/{{artifactId}}",
+        "description": "Download the artifact. Uses the session token, not the user client token. HTML is artifact.content.text."
+      }
+    }
+  ]
+}

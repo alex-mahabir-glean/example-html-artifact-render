@@ -1,6 +1,6 @@
 {
   "name": "example-html-artifact-render",
-  "description": "Ask Glean chat for an HTML artifact, then render it in a page you host.",
+  "description": "A page that calls Glean chat and the artifact API, then renders the HTML.",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
+    "demo": "node scripts/open-demo-browser.mjs",
     "test": "node --test"
   }
 }

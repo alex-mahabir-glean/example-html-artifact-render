@@ -3,12 +3,11 @@
   --ink: #1c1915;
   --muted: #5e584f;
   --line: #e4ddd2;
-  --paper: #f6f1e8;
-  --panel: #fffdf9;
-  --accent: #0f6e6b;
-  --accent-ink: #ffffff;
+  --paper: #f7f6f3;
+  --panel: #fff;
+  --accent: #1f4b99;
+  --accent-ink: #fff;
   --danger: #8d2f2f;
-  --shadow: 0 18px 50px rgba(48, 36, 18, 0.08);
   font-family: "IBM Plex Sans", sans-serif;
 }
 
@@ -18,56 +17,23 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top left, rgba(15, 110, 107, 0.08), transparent 32rem),
-    var(--paper);
+  background: var(--paper);
 }
 
-button, input, textarea, select { font: inherit; color: inherit; }
+button, textarea, select { font: inherit; color: inherit; }
 
-a { color: var(--accent); }
-
-#app { min-height: 100vh; }
+#app, .shell { min-height: 100vh; }
 
 .shell {
-  width: min(1120px, calc(100% - 32px));
+  width: min(960px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 28px 0 48px;
-}
-
-.top {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: end;
-  margin-bottom: 28px;
-}
-
-.brand {
-  font-family: "IBM Plex Serif", serif;
-  font-size: 32px;
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-
-.lede {
-  margin: 6px 0 0;
-  max-width: 46rem;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 20px;
+  padding: 32px 0;
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
+  border-radius: 16px;
   padding: 20px;
 }
 
@@ -75,10 +41,12 @@ label {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin: 14px 0 8px;
 }
 
-textarea, select, input[type="text"] {
+label:first-child { margin-top: 0; }
+
+textarea, select {
   width: 100%;
   border: 1px solid var(--line);
   background: #fff;
@@ -86,16 +54,9 @@ textarea, select, input[type="text"] {
   padding: 12px 14px;
 }
 
-textarea { min-height: 180px; resize: vertical; line-height: 1.45; }
+textarea { min-height: 160px; resize: vertical; line-height: 1.45; }
 
-.row { margin-top: 14px; }
-
-.actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 16px;
-}
+.actions { margin-top: 16px; }
 
 button {
   border: 0;
@@ -106,97 +67,29 @@ button {
   cursor: pointer;
 }
 
-button.secondary, a.secondary {
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  text-decoration: none;
-  border-radius: 999px;
-  padding: 10px 14px;
-}
-
-button.danger { background: var(--danger); }
-
 button:disabled { opacity: 0.6; cursor: progress; }
 
-.status {
-  margin-top: 14px;
-  color: var(--muted);
-  line-height: 1.45;
-}
+.status, .error { margin: 14px 0 0; line-height: 1.45; }
+.status { color: var(--muted); }
+.error { color: var(--danger); }
 
-.error {
-  margin-top: 14px;
-  color: var(--danger);
-  line-height: 1.45;
-}
-
-.library-item, .meta-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-
-.library-item a { text-decoration: none; font-weight: 600; }
-
-.muted { color: var(--muted); font-size: 13px; }
-
-.stage-page {
-  min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-
-.stage-bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  padding: 16px 20px;
+.calls {
+  margin: 16px 0 0;
+  padding: 12px 16px 12px 32px;
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
-.stage-title {
-  margin: 0;
-  font-family: "IBM Plex Serif", serif;
-  font-size: 22px;
-}
-
-.stage-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-.frame-wrap {
-  min-height: 0;
-  padding: 16px;
-}
+.frame-wrap { min-height: calc(100vh - 64px); }
 
 iframe {
   width: 100%;
-  height: 100%;
-  min-height: 70vh;
+  height: calc(100vh - 64px);
   border: 1px solid var(--line);
   border-radius: 16px;
   background: white;
-}
-
-.banner {
-  margin: 0 16px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #fff4df;
-  color: #6a4b16;
-  line-height: 1.4;
-}
-
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.92em;
-}
-
-@media (max-width: 800px) {
-  .layout, .top, .stage-bar { display: block; }
-  .stage-actions { margin-top: 12px; }
-  .brand { font-size: 28px; }
 }
